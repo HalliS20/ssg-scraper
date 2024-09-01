@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/xml"
 	"fmt"
 	"os"
 	"strings"
@@ -14,6 +15,16 @@ var (
 	links   []string
 	baseUrl string
 )
+
+type Sitemap struct {
+	XMLName xml.Name `xml:"urlset"`
+	Xmlns   string   `xml:"xmlns,attr"`
+	URLs    []URL    `xml:"url"`
+}
+
+type URL struct {
+	Loc string `xml:"loc"`
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -30,6 +41,8 @@ func main() {
 			getHttp(value)
 		}
 	}
+
+	generateSitemap()
 }
 
 func Contains[T comparable](arr []T, item T) bool {
@@ -108,4 +121,33 @@ func stringToHtml(htmlStr string, path string) {
 	}
 
 	fmt.Println("HTML content saved to ", newFilePath)
+}
+
+func generateSitemap() {
+	sitemap := Sitemap{
+		Xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9",
+		URLs:  make([]URL, 0),
+	}
+
+	for _, link := range links {
+		sitemap.URLs = append(sitemap.URLs, URL{Loc: "https://" + baseUrl + link})
+	}
+
+	output, err := xml.MarshalIndent(sitemap, "", "  ")
+	if err != nil {
+		fmt.Println("error marshaling sitemap: ", err)
+		return
+	}
+
+	file, err := os.Create(baseUrl + "/sitemap.xml")
+	if err != nil {
+		fmt.Println("error creating sitemap file: ", err)
+		return
+	}
+	defer file.Close()
+
+	file.WriteString(xml.Header)
+	file.Write(output)
+
+	fmt.Println("Sitemap generated and saved to ", baseUrl+"/sitemap.xml")
 }
